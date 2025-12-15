@@ -1,0 +1,147 @@
+Contexto & Objetivo
+Crie uma aplicação web no Lovable que:
+
+lê um Excel (.xlsx) com vendas,
+
+calcula RFM por cliente,
+
+classifica clientes em categorias,
+
+gera (a) um heatmap 5×5 de categorias, (b) um gráfico de barras com nº de clientes por categoria e (c) uma lista/tabela de clientes por categoria com os scores R, F, M.
+Sem regras especiais para poucos clientes.
+
+Dados de entrada (Excel)
+
+As colunas obrigatórias são exatamente:
+
+Cliente (Nome Fantasia) (texto)
+
+Data de Emissão (completa) (data)
+
+Total da Nota Fiscal (número)
+
+Tags (texto; contém substrings como “Autarquia” e/ou “Privado”)
+
+Controles de UI (topo da página)
+
+Upload: aceitar apenas .xlsx.
+
+Slider Prazo (meses): inteiro de 1 a 36 (padrão 12).
+
+Multiselect Segmento: opções Autarquia, Privado (selecionadas por padrão).
+
+Botão: “Iniciar Análise RFM”.
+
+Fluxo ao clicar em “Iniciar Análise RFM”
+
+Validação inicial
+
+Se não houver arquivo: mostrar aviso “⚠️ Por favor, envie um arquivo Excel.” e parar.
+
+Ler a planilha para um dataframe/tabela DF. Se vazio: “⚠️ Arquivo vazio.” e parar.
+
+Padronização & filtro
+
+Converter Data de Emissão (completa) para data; Total da Nota Fiscal para número (coerção de erros → nulo).
+
+Tags → texto.
+
+Filtrar DF mantendo linhas em que Tags contém qualquer item selecionado no multiselect.
+
+Manter apenas colunas essenciais e remover nulos nessas colunas.
+
+Filtro temporal
+
+LimiteData = hoje() - Prazo(meses)
+
+DF_Filtrado = DF onde Data ≥ LimiteData. Se vazio: “⚠️ Sem movimentação no período selecionado.” e parar.
+
+Cálculo RFM
+
+LatestDate = max(Data) no período filtrado.
+
+Recency por cliente = dias entre LatestDate e a última compra do cliente.
+
+Frequency por cliente = nº de compras no período.
+
+Monetary por cliente = soma de Total da Nota Fiscal no período.
+
+Monte tabela RFM[Cliente, Recency, Frequency, Monetary].
+
+Escoragem (quintis) e Score_FM
+
+Score_R = quintil(Recency, labels=[5,4,3,2,1]) (menor recência = melhor score).
+
+Score_F = quintil(rank(Frequency), labels=[1,2,3,4,5]).
+
+Score_M = quintil(rank(Monetary), labels=[1,2,3,4,5]).
+
+Score_FM = arredondar((Score_F + Score_M)/2).
+
+Classificação por regras (Category)
+Implementar a função Classificar(score_r, score_fm) com as regras abaixo (na ordem):
+
+5 & 5 → Campeões
+
+(5 & 4) ou (4 & {4,5}) ou (3 & {4,5}) → Fiel
+
+3 & 3 → Atencao
+
+3 & {1,2} → Quase Domententes
+
+4 & 1 → Promessas
+
+5 & 1 → Novos Clientes
+
+2 & 2 → Hibernando
+
+{1,2} & 5 → Nao Pode Perder
+
+{1,2} & {3,4} → Em Risco
+
+(1 & {1,2}) ou (2 & 1) → Perdidos
+
+{4,5} & {2,3} → Fiel em Potencial
+
+Caso nenhuma regra: Sem Categoria
+
+RFM.Category = Classificar(Score_R, Score_FM)
+
+Heatmap 5×5 (Score_FM linhas 1..5, Score_R colunas 1..5)
+
+Gerar grade completa de combinações (Score_FM, Score_R) para garantir todas as 25 células.
+
+Para cada célula, calcular CategoriaCelula = Classificar(R, FM).
+
+Contagens = contagem de clientes por (Score_FM, Score_R).
+
+PivotCat = pivot(CategoriaCelula) e PivotCount = pivot(Contagens).
+
+Converter PivotCat para matriz numérica usando índice das categorias (abaixo) para mapear cores.
+
+Annot[i,j] = “{PivotCount[i,j]}\\n{PivotCat[i,j]}”.
+
+Plotar heatmap sem barra de cor, com anotações, invertendo eixo Y (Score_FM=5 no topo).
+
+Gráfico de barras por categoria
+
+CatCounts = contagem de RFM.Category reindexado na ordem das cores definida abaixo; faltantes → 0.
+
+Plotar barras com rótulos inclinados (45°).
+
+Lista/Tabela de clientes por categoria
+
+Uma tabela filtrável por Category com as colunas:
+Cliente, Recency, Frequency, Monetary, Score_R, Score_F, Score_M, Score_FM, Category.
+
+Exportações
+
+Salvar imagens: rfm_heatmap.png e rfm_barras.png.
+
+Gerar Excel rfm_resultado.xlsx com abas:
+
+Clientes RFM (todas as colunas da tabela RFM).
+
+Resumo Categorias (Categoria, Qtd Clientes = CatCounts).
+
+Exibir mensagens de sucesso com nomes dos arquivos.
